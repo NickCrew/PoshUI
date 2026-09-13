@@ -2,7 +2,7 @@
     "recommendations": [
         "ms-vscode.powershell",
         "editorconfig.editorconfig",
-        "gitlab.gitlab-workflow",
+        "github.vscode-pull-request-github",
         "hverlin.mise-vscode"
     ]
 }

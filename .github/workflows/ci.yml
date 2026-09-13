@@ -1,0 +1,231 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+env:
+  POWERSHELL_VERSION: "7.6.4"
+  POWERSHELL_DEB_SHA256: "e5688e0569568d48051c49d3e93504cde47af709cdaaabd9a8892bc676b3bdf3"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: posh-ui-release
+  cancel-in-progress: false
+
+jobs:
+  conventional-title:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check pull request title follows Conventional Commits
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: ./scripts/check-conventional-title.sh
+
+  version-consistent:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-pwsh
+        with:
+          version: ${{ env.POWERSHELL_VERSION }}
+          sha256: ${{ env.POWERSHELL_DEB_SHA256 }}
+      - name: Verify every generated version site matches the manifest
+        run: pwsh -NoLogo -NoProfile -NonInteractive -File ./tools/Set-Version.ps1 -Check
+
+  version-not-released:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-pwsh
+        with:
+          version: ${{ env.POWERSHELL_VERSION }}
+          sha256: ${{ env.POWERSHELL_DEB_SHA256 }}
+      - name: Preview the release this change implies
+        run: |
+          pwsh -NoLogo -NoProfile -NonInteractive -Command '
+            $ErrorActionPreference = "Stop"
+            $manifest = (Import-PowerShellDataFile ./powershell/PoshUI.psd1).ModuleVersion
+            $next = ./tools/Get-NextVersion.ps1
+            if (-not $next) {
+              Write-Host "Manifest is $manifest. No commit since the last tag warrants a release."
+            }
+            elseif ($next -eq $manifest) {
+              Write-Host "Manifest is $manifest, which is what the commits since the last tag imply."
+            }
+            else {
+              Write-Host "Manifest is $manifest. The commits since the last tag imply $next."
+              Write-Host "CI will apply this version after a successful merge."
+            }
+          '
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-pwsh
+        with:
+          version: ${{ env.POWERSHELL_VERSION }}
+          sha256: ${{ env.POWERSHELL_DEB_SHA256 }}
+      - name: Install PSScriptAnalyzer
+        run: pwsh -NoLogo -NoProfile -NonInteractive -Command 'Set-PSRepository PSGallery -InstallationPolicy Trusted; Install-Module PSScriptAnalyzer -RequiredVersion 1.25.0 -Scope CurrentUser -Force'
+      - name: Run PSScriptAnalyzer
+        run: |
+          pwsh -NoLogo -NoProfile -NonInteractive -Command '
+            $finding = @(
+              foreach ($path in "./powershell", "./tools", "./build.ps1") {
+                Invoke-ScriptAnalyzer -Path $path -Recurse -Settings ./PSScriptAnalyzerSettings.psd1
+              }
+            )
+            $finding | Format-Table -AutoSize
+            if ($finding.Count -gt 0) { exit 1 }
+          '
+
+  pester:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-pwsh
+        with:
+          version: ${{ env.POWERSHELL_VERSION }}
+          sha256: ${{ env.POWERSHELL_DEB_SHA256 }}
+      - name: Install Pester
+        run: pwsh -NoLogo -NoProfile -NonInteractive -Command 'Set-PSRepository PSGallery -InstallationPolicy Trusted; Install-Module Pester -RequiredVersion 6.0.1 -Scope CurrentUser -Force'
+      - name: Run Pester suite
+        run: pwsh -NoLogo -NoProfile -NonInteractive -File ./powershell/tests/Invoke-Tests.ps1 -OutputPath "$GITHUB_WORKSPACE/test-results-pester.xml"
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pester-results
+          path: test-results-pester.xml
+          retention-days: 7
+
+  pester-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure pinned PowerShell
+        shell: pwsh
+        run: |
+          $pwshPath = 'C:\Program Files\PowerShell\7\pwsh.exe'
+          $installedVersion = if (Test-Path -LiteralPath $pwshPath -PathType Leaf) {
+            & $pwshPath -NoLogo -NoProfile -NonInteractive -Command '$PSVersionTable.PSVersion.ToString()'
+          }
+          if ($installedVersion -ne $env:POWERSHELL_VERSION) {
+            choco install powershell-core --version=$env:POWERSHELL_VERSION --force --allow-downgrade -y --no-progress --limit-output | Out-Null
+          }
+          if (-not (Test-Path -LiteralPath $pwshPath -PathType Leaf)) {
+            throw "PowerShell $env:POWERSHELL_VERSION was not installed at $pwshPath"
+          }
+          $installedVersion = & $pwshPath -NoLogo -NoProfile -NonInteractive -Command '$PSVersionTable.PSVersion.ToString()'
+          if ($installedVersion -ne $env:POWERSHELL_VERSION) {
+            throw "Expected PowerShell $env:POWERSHELL_VERSION, found $installedVersion."
+          }
+          & $pwshPath -NoLogo -NoProfile -NonInteractive -Command '
+            Set-PSRepository PSGallery -InstallationPolicy Trusted
+            if (-not (Get-Module -ListAvailable Pester | Where-Object Version -eq "6.0.1")) {
+              Install-Module Pester -RequiredVersion 6.0.1 -Scope CurrentUser -Force
+            }
+          '
+      - name: Run Pester suite
+        shell: pwsh
+        run: |
+          & 'C:\Program Files\PowerShell\7\pwsh.exe' -NoLogo -NoProfile -NonInteractive -File .\powershell\tests\Invoke-Tests.ps1 -OutputPath "$env:GITHUB_WORKSPACE\test-results-pester-windows.xml"
+          if ($LASTEXITCODE -ne 0) { throw "Pester suite failed on Windows" }
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pester-results-windows
+          path: test-results-pester-windows.xml
+          retention-days: 7
+
+  # Everything below only runs for a direct push to main (never for a pull
+  # request), and is skipped for the release commit itself so a successful
+  # release cannot re-trigger another one. actions/checkout persists a
+  # credential helper for GITHUB_TOKEN, so scripts/automatic_release.sh can
+  # push back to `origin` without any manual token plumbing.
+  automatic-release:
+    if: "github.event_name == 'push' && !startsWith(github.event.head_commit.message, 'chore(release): v')"
+    needs: [version-consistent, version-not-released, lint, pester, pester-windows]
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.release.outputs.release_tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-pwsh
+        with:
+          version: ${{ env.POWERSHELL_VERSION }}
+          sha256: ${{ env.POWERSHELL_DEB_SHA256 }}
+      - name: Prepare and push the release commit and tag
+        id: release
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: ./scripts/automatic_release.sh
+      - uses: actions/upload-artifact@v4
+        if: steps.release.outputs.release_tag != ''
+        with:
+          name: release-notes
+          path: |
+            .release/version
+            .release/notes.md
+
+  publish:
+    needs: automatic-release
+    if: needs.automatic-release.outputs.release_tag != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-pwsh
+        with:
+          version: ${{ env.POWERSHELL_VERSION }}
+          sha256: ${{ env.POWERSHELL_DEB_SHA256 }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-notes
+          path: .release
+      - name: Check out the release tag
+        run: |
+          git fetch --force origin "refs/tags/${{ needs.automatic-release.outputs.release_tag }}:refs/tags/${{ needs.automatic-release.outputs.release_tag }}"
+          git checkout --detach "${{ needs.automatic-release.outputs.release_tag }}"
+      - name: Verify release notes
+        run: pwsh -NoLogo -NoProfile -NonInteractive -File ./tools/Invoke-ReleaseChangelog.ps1 -Action Verify -Tag "${{ needs.automatic-release.outputs.release_tag }}" -ManifestPath ./powershell/PoshUI.psd1 -OutputPath ./.release/notes.md
+      - name: Publish to the PowerShell Gallery
+        env:
+          PSGALLERY_API_KEY: ${{ secrets.PSGALLERY_API_KEY }}
+        run: pwsh -NoLogo -NoProfile -NonInteractive -File ./tools/Publish-PoshUIModule.ps1 -ApiKey $env:PSGALLERY_API_KEY -Verbose
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-notes-verified
+          path: .release/notes.md
+
+  github-release:
+    needs: [automatic-release, publish]
+    if: needs.automatic-release.outputs.release_tag != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-notes-verified
+          path: .release
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ needs.automatic-release.outputs.release_tag }}" \
+            --repo "${{ github.repository }}" \
+            --title "PoshUI ${{ needs.automatic-release.outputs.release_tag }}" \
+            --notes-file .release/notes.md

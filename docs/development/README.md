@@ -21,4 +21,4 @@ Focused tasks include:
 
 The documentation generator imports the exact manifest by path and uses its explicit export inventory. Update comment-based help and regenerate the reference in the same change as any public command contract. Release stamping also regenerates the reference after changing the manifest version.
 
-Contribution and merge request expectations are in [CONTRIBUTING.md](../../CONTRIBUTING.md). Detailed test coverage is in [Testing PoshUI](../testing/TESTING.md).
+Contribution and pull request expectations are in [CONTRIBUTING.md](../../CONTRIBUTING.md). Detailed test coverage is in [Testing PoshUI](../testing/TESTING.md).

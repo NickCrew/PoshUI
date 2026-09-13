@@ -10,6 +10,11 @@ releasable Conventional Commits provide fallback notes.
 
 ## [Unreleased]
 
+### Changed
+
+- Moved CI/CD from GitLab CI to GitHub Actions, and the release feed from an internal Artifactory feed to the PowerShell Gallery.
+- Renamed the `unafy` theme alias to `aurora`.
+
 ## [4.1.0] - 2026-08-28
 
 ### Added
@@ -20,7 +25,7 @@ releasable Conventional Commits provide fallback notes.
 
 ### Changed
 
-- Made the Unanet theme the default and added runtime switching for built-in and custom themes.
+- Made the built-in theme active by default and added runtime switching for built-in and custom themes.
 
 ## [4.0.0] - 2026-08-27
 
@@ -49,7 +54,7 @@ releasable Conventional Commits provide fallback notes.
 
 ### Changed
 
-- fix(ci): configure gitlab release host (533ca303)
+- fix(ci): configure release host (533ca303)
 
 ## [3.0.0] - 2026-08-27
 
@@ -95,7 +100,7 @@ releasable Conventional Commits provide fallback notes.
 
 ### Changed
 
-- fix(release): use JFrog lookup feed (eaf35d06)
+- fix(release): use package lookup feed (eaf35d06)
 
 ## [2.2.0] - 2026-08-24
 
@@ -112,13 +117,13 @@ releasable Conventional Commits provide fallback notes.
 - Established PoshUI as a versioned PowerShell module published from semantic
   version tags.
 
-[Unreleased]: https://gitlab.unanet.io/cosential/dev-tools/posh-ui/-/compare/v4.1.0...HEAD
-[4.1.0]: https://gitlab.unanet.io/cosential/dev-tools/posh-ui/-/compare/v4.0.0...v4.1.0
-[4.0.0]: https://gitlab.unanet.io/cosential/dev-tools/posh-ui/-/compare/v3.0.1...v4.0.0
-[3.0.1]: https://gitlab.unanet.io/cosential/dev-tools/posh-ui/-/compare/v3.0.0...v3.0.1
-[3.0.0]: https://gitlab.unanet.io/cosential/dev-tools/posh-ui/-/compare/v2.3.0...v3.0.0
-[2.3.0]: https://gitlab.unanet.io/cosential/dev-tools/posh-ui/-/compare/v2.2.2...v2.3.0
-[2.2.2]: https://gitlab.unanet.io/cosential/dev-tools/posh-ui/-/compare/v2.2.1...v2.2.2
-[2.2.1]: https://gitlab.unanet.io/cosential/dev-tools/posh-ui/-/compare/v2.2.0...v2.2.1
-[2.2.0]: https://gitlab.unanet.io/cosential/dev-tools/posh-ui/-/compare/v2.1.1...v2.2.0
-[2.1.1]: https://gitlab.unanet.io/cosential/dev-tools/posh-ui/-/tags/v2.1.1
+[Unreleased]: https://github.com/NickCrew/PoshUI/compare/v4.1.0...HEAD
+[4.1.0]: https://github.com/NickCrew/PoshUI/compare/v4.0.0...v4.1.0
+[4.0.0]: https://github.com/NickCrew/PoshUI/compare/v3.0.1...v4.0.0
+[3.0.1]: https://github.com/NickCrew/PoshUI/compare/v3.0.0...v3.0.1
+[3.0.0]: https://github.com/NickCrew/PoshUI/compare/v2.3.0...v3.0.0
+[2.3.0]: https://github.com/NickCrew/PoshUI/compare/v2.2.2...v2.3.0
+[2.2.2]: https://github.com/NickCrew/PoshUI/compare/v2.2.1...v2.2.2
+[2.2.1]: https://github.com/NickCrew/PoshUI/compare/v2.2.0...v2.2.1
+[2.2.0]: https://github.com/NickCrew/PoshUI/compare/v2.1.1...v2.2.0
+[2.1.1]: https://github.com/NickCrew/PoshUI/releases/tag/v2.1.1

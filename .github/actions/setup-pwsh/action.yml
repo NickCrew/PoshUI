@@ -1,0 +1,25 @@
+name: Set up pinned PowerShell
+description: Installs the exact PowerShell version this repository pins, verified by SHA256, on a Debian-based runner.
+inputs:
+  version:
+    description: PowerShell version to install (without a leading v)
+    required: true
+  sha256:
+    description: SHA256 checksum of the linked .deb package
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Install PowerShell ${{ inputs.version }}
+      shell: bash
+      run: |
+        set -eu
+        sudo apt-get update -qq && sudo apt-get install -y -qq ca-certificates curl git >/dev/null
+        curl --fail --location --silent --show-error --output /tmp/powershell.deb "https://github.com/PowerShell/PowerShell/releases/download/v${{ inputs.version }}/powershell_${{ inputs.version }}-1.deb_amd64.deb"
+        echo "${{ inputs.sha256 }}  /tmp/powershell.deb" | sha256sum --check --status
+        sudo apt-get install -y -qq /tmp/powershell.deb >/dev/null
+        installed=$(pwsh -NoLogo -NoProfile -NonInteractive -Command '$PSVersionTable.PSVersion.ToString()')
+        if [ "$installed" != "${{ inputs.version }}" ]; then
+          echo "Expected PowerShell ${{ inputs.version }}, found $installed." >&2
+          exit 1
+        fi

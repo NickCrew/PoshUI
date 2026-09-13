@@ -3,8 +3,10 @@
 set -eu
 
 PWSH_BIN=${PWSH_BIN:-pwsh}
-RELEASE_REMOTE_URL=${RELEASE_REMOTE_URL:-"https://oauth2:${GITLAB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"}
+RELEASE_REMOTE_URL=${RELEASE_REMOTE_URL:-origin}
 RELEASE_DIR=${RELEASE_DIR:-.release}
+BOT_NAME=${BOT_NAME:-"github-actions[bot]"}
+BOT_EMAIL=${BOT_EMAIL:-"41898282+github-actions[bot]@users.noreply.github.com"}
 
 mkdir -p "$RELEASE_DIR"
 : >"$RELEASE_DIR/release.env"
@@ -18,13 +20,14 @@ require_value() {
   fi
 }
 
-for name in CI_API_V4_URL CI_COMMIT_SHA CI_COMMIT_TIMESTAMP CI_DEFAULT_BRANCH \
-  CI_PROJECT_PATH CI_SERVER_HOST GITLAB_TOKEN; do
+for name in GITHUB_SHA DEFAULT_BRANCH; do
   require_value "$name"
 done
 
-git fetch --force origin "$CI_DEFAULT_BRANCH" --tags
-REMOTE_HEAD=$(git rev-parse "origin/${CI_DEFAULT_BRANCH}")
+COMMIT_TIMESTAMP=${COMMIT_TIMESTAMP:-$(git show -s --format=%cI "$GITHUB_SHA")}
+
+git fetch --force origin "$DEFAULT_BRANCH" --tags
+REMOTE_HEAD=$(git rev-parse "origin/${DEFAULT_BRANCH}")
 # PowerShell receives these script blocks verbatim. Shell expansion would
 # corrupt its variable syntax.
 # shellcheck disable=SC2016
@@ -34,8 +37,15 @@ PLAN=$($PWSH_BIN -NoLogo -NoProfile -NonInteractive -Command '
 ')
 NEXT_VERSION=$(printf '%s' "$PLAN" | sed -n 's/.*"Version":"\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)".*/\1/p')
 
+emit_release_tag() {
+  if [ -n "${GITHUB_OUTPUT:-}" ]; then
+    printf 'release_tag=%s\n' "$1" >>"$GITHUB_OUTPUT"
+  fi
+}
+
 if [ -z "$NEXT_VERSION" ]; then
   echo "Nothing to release."
+  emit_release_tag ""
   exit 0
 fi
 TAG="v${NEXT_VERSION}"
@@ -63,7 +73,7 @@ resume_existing_release() {
     powershell/PoshUI.psd1)
 
   [ "$RELEASE_TYPE" = "tag" ] && \
-    [ "$RELEASE_PARENT" = "$CI_COMMIT_SHA" ] && \
+    [ "$RELEASE_PARENT" = "$GITHUB_SHA" ] && \
     [ "$RELEASE_VERSION" = "$NEXT_VERSION" ] && \
     [ "$CHANGED_PATHS" = "$EXPECTED_PATHS" ] && \
     git merge-base --is-ancestor "$RELEASE_COMMIT" "$REMOTE_HEAD" || return 1
@@ -76,11 +86,13 @@ resume_existing_release() {
   return 0
 }
 
-if [ "$REMOTE_HEAD" != "$CI_COMMIT_SHA" ]; then
+if [ "$REMOTE_HEAD" != "$GITHUB_SHA" ]; then
   if ! resume_existing_release; then
-    echo "Default branch advanced before this release; the newer pipeline owns it."
+    echo "Default branch advanced before this release; the newer run owns it."
+    emit_release_tag ""
     exit 0
   fi
+  emit_release_tag "$TAG"
   exit 0
 fi
 
@@ -92,35 +104,16 @@ fi
 $PWSH_BIN -NoLogo -NoProfile -NonInteractive -File ./tools/Get-NextVersion.ps1 -Apply >/dev/null
 write_release_artifacts
 
-identity=$(curl --silent --show-error --fail \
-  --header "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
-  "${CI_API_V4_URL}/user") || {
-  echo "GITLAB_TOKEN was rejected when asking GitLab for its identity." >&2
-  exit 3
-}
-# shellcheck disable=SC2016
-bot_fields=$(printf '%s' "$identity" | $PWSH_BIN -NoLogo -NoProfile -NonInteractive -Command '
-  $user = $input | Out-String | ConvertFrom-Json
-  $name = if ($user.name) { $user.name } else { $user.username }
-  $email = if ($user.email) { $user.email } else { "$($user.username)@noreply.$env:CI_SERVER_HOST" }
-  if (-not $name -or -not $email) { exit 1 }
-  $name
-  $email
-') || {
-  echo "GitLab token identity was incomplete." >&2
-  exit 3
-}
-BOT_NAME=$(printf '%s\n' "$bot_fields" | sed -n '1p')
-BOT_EMAIL=$(printf '%s\n' "$bot_fields" | sed -n '2p')
 git config user.name "$BOT_NAME"
 git config user.email "$BOT_EMAIL"
 git add CHANGELOG.md README.md docs/reference/powershell.md powershell/PoshUI.psd1
-GIT_AUTHOR_DATE="$CI_COMMIT_TIMESTAMP" GIT_COMMITTER_DATE="$CI_COMMIT_TIMESTAMP" \
+GIT_AUTHOR_DATE="$COMMIT_TIMESTAMP" GIT_COMMITTER_DATE="$COMMIT_TIMESTAMP" \
   git commit -m "chore(release): ${TAG} [skip ci]"
-GIT_COMMITTER_DATE="$CI_COMMIT_TIMESTAMP" \
+GIT_COMMITTER_DATE="$COMMIT_TIMESTAMP" \
   git tag --annotate "$TAG" --file "$RELEASE_DIR/notes.md"
 git push --atomic "$RELEASE_REMOTE_URL" \
-  "HEAD:refs/heads/${CI_DEFAULT_BRANCH}" \
+  "HEAD:refs/heads/${DEFAULT_BRANCH}" \
   "refs/tags/${TAG}"
 
+emit_release_tag "$TAG"
 echo "Prepared PoshUI ${TAG} for publication."

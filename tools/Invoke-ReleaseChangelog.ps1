@@ -9,7 +9,7 @@
     Unreleased is empty, it generates notes from releasable Conventional Commits
     since the previous tag. Verify requires the tag, PowerShell manifest version,
     and changelog section to agree, and can write the exact section body to a file
-    for GitLab release metadata.
+    for GitHub release metadata.
 
     The script never creates a commit, tag, or publication.
 
@@ -54,7 +54,7 @@
 .EXAMPLE
     PS> ./tools/Invoke-ReleaseChangelog.ps1 -Action Verify -Tag v2.2.0 -ManifestPath ./powershell/PoshUI.psd1 -OutputPath ./.release/notes.md
 
-    Verifies the release and writes its notes for GitLab release metadata.
+    Verifies the release and writes its notes for GitHub release metadata.
 
 .NOTES
     Generated fallback notes contain only feat, fix, perf, revert, and breaking commits.

@@ -27,8 +27,8 @@ BeforeAll {
 
 - Baseline.
 
-[Unreleased]: https://gitlab.example.test/group/project/-/compare/v2.1.1...HEAD
-[2.1.1]: https://gitlab.example.test/group/project/-/tags/v2.1.1
+[Unreleased]: https://github.example.test/group/project/compare/v2.1.1...HEAD
+[2.1.1]: https://github.example.test/group/project/releases/tag/v2.1.1
 '@
 
         & git -C $Path init --quiet --initial-branch=master
@@ -55,17 +55,14 @@ BeforeAll {
 
 Describe 'Release changelog contract' {
     It 'exports exact version notes for the automatic publish job' {
-        $ci = [IO.File]::ReadAllText((Join-Path $script:RepoRoot '.gitlab-ci.yml'))
+        $ci = [IO.File]::ReadAllText((Join-Path $script:RepoRoot '.github/workflows/ci.yml'))
 
-        $publish = [regex]::Match($ci, '(?ms)^publish:\s*$(.*?)(?=^[a-zA-Z][a-zA-Z0-9-]*:\s*$)').Groups[1].Value
-        $gitlabRelease = [regex]::Match($ci, '(?ms)^gitlab-release:\s*$(.*?)(?=^[a-zA-Z][a-zA-Z0-9-]*:\s*$|\z)').Groups[1].Value
-        $publish | Should -Not -Match '(?m)^\s+when: manual$'
+        $publish = [regex]::Match($ci, '(?ms)^  publish:\s*$(.*?)(?=^  [a-zA-Z][a-zA-Z0-9_-]*:\s*$|\z)').Groups[1].Value
+        $githubRelease = [regex]::Match($ci, '(?ms)^  github-release:\s*$(.*?)(?=^  [a-zA-Z][a-zA-Z0-9_-]*:\s*$|\z)').Groups[1].Value
         $publish | Should -Match 'Invoke-ReleaseChangelog\.ps1 -Action Verify'
         $publish | Should -Match '\.release/notes\.md'
-        $gitlabRelease | Should -Match '\.release/notes\.md'
-        $gitlabRelease | Should -Match 'glab\s+release\s+create'
-        $gitlabRelease | Should -Not -Match 'glab\s+release\s+create[^\r\n]+--no-update'
-        $gitlabRelease | Should -Not -Match '(?m)^\s+release:$'
+        $githubRelease | Should -Match '\.release/notes\.md'
+        $githubRelease | Should -Match 'gh\s+release\s+create'
     }
 
     It 'rolls curated Unreleased notes when applying the derived version' {

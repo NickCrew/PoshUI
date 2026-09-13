@@ -22,7 +22,7 @@ Describe 'PowerShell runtime policy' {
 
     It 'requires the environment PowerShell locally and pins the CI runtime' {
         (Get-Content (Join-Path $script:RepositoryRoot 'build.ps1') -TotalCount 1) | Should -Be '#Requires -Version 7.6'
-        (Get-Content (Join-Path $script:RepositoryRoot '.gitlab-ci.yml') -Raw) | Should -Match 'POWERSHELL_VERSION:\s*"7\.6\.'
+        (Get-Content (Join-Path $script:RepositoryRoot '.github/workflows/ci.yml') -Raw) | Should -Match 'POWERSHELL_VERSION:\s*"7\.6\.'
     }
 
     It 'keeps removed compatibility commands out of runtime and tooling code' {

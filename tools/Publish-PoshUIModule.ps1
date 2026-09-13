@@ -2,36 +2,22 @@
 
 <#
 .SYNOPSIS
-    Publishes the PoshUI PowerShell module to the Unanet Artifactory feed.
+    Publishes the PoshUI PowerShell module to the PowerShell Gallery
 
 .DESCRIPTION
-    Packs the runtime-only PowerShell module and pushes it to Artifactory's NuGet feed, so
-    consumers can run Install-PSResource PoshUI instead of cloning this
-    repository.
+    Packs the runtime-only PowerShell module and pushes it to the PowerShell
+    Gallery, so consumers can run Install-PSResource PoshUI instead of cloning
+    this repository.
 
-    The version comes from the manifest, and tools/Set-Version.ps1 -Check proves
-    every other version site agrees with it, so the package version and the tag
-    cannot drift apart.
+    The version comes from the manifest, and tools/Set-Version.ps1 -Check
+    proves every other version site agrees with it, so the package version and
+    the tag cannot drift apart.
 
-    In CI the defaults resolve to the shared feed and the group-level JFrog
-    credential, so the publish job passes no arguments.
+    In CI the API key comes from the PSGALLERY_API_KEY secret, so the publish
+    job passes no arguments.
 
-.PARAMETER FeedUri
-    NuGet v3 service index. Defaults to nuget-local, the local repository that
-    backs the virtual nuget feed consumers read from.
-
-.PARAMETER LookupUri
-    Consumer-facing NuGet v3 service index used to discover package metadata.
-    Defaults to the virtual nuget repository, which advertises the
-    PackageBaseAddress resource needed for duplicate-version checks.
-
-.PARAMETER Token
-    Password half of the Basic credential. Defaults to JFROG_API_KEY.
-
-.PARAMETER UserName
-    Username half. Artifactory checks the username and key as a pair, so one is
-    required. Defaults to JFROG_USER, then JFROG_USERNAME. In CI that is
-    unanet-ci-rw, set alongside the job in .gitlab-ci.yml.
+.PARAMETER ApiKey
+    PowerShell Gallery API key. Defaults to PSGALLERY_API_KEY.
 
 .PARAMETER ModulePath
     Directory holding the manifest. Defaults to powershell/ beside this script.
@@ -45,39 +31,24 @@
 .EXAMPLE
     PS> ./tools/Publish-PoshUIModule.ps1
 
-    Publishes to nuget-local using the JFrog credential in the environment.
+    Publishes to the PowerShell Gallery using PSGALLERY_API_KEY from the environment.
 
 .EXAMPLE
-    PS> ./tools/Publish-PoshUIModule.ps1 -UserName me -Token $key -WhatIf
+    PS> ./tools/Publish-PoshUIModule.ps1 -ApiKey $key -WhatIf
 
     Reports what would be published without pushing anything.
 
 .NOTES
-    Authentication is Basic, supplied as a PSCredential, because Artifactory
-    authenticates the username and key together rather than the key alone.
-
-    The push targets nuget-local rather than the virtual nuget feed, which has
-    no default deployment repository configured. Artifactory serves a v3 index
-    whose PackagePublish resource points back at its v2 endpoint, and that is
-    where PSResourceGet posts the package.
-
-    -ApiVersion V3 pins the protocol. PSResourceGet also probes it correctly
-    from an index.json URI, but the probe is a URI-shape heuristic and this is
-    the release path.
+    The PowerShell Gallery is a single public repository, so this script does
+    not register or credential a private feed. The publish endpoint accepts a
+    single API key rather than a username and key pair.
 
 .LINK
-    https://gitlab.unanet.io/cosential/dev-tools/posh-ui
+    https://github.com/NickCrew/PoshUI
 #>
-[Diagnostics.CodeAnalysis.SuppressMessageAttribute(
-    'PSAvoidUsingConvertToSecureStringWithPlainText', '',
-    Justification = 'The token arrives as a CI variable and PSCredential is the only shape Publish-PSResource accepts. It never leaves this process.'
-)]
 [CmdletBinding(SupportsShouldProcess)]
 param(
-    [string]$FeedUri = "https://unanet.jfrog.io/artifactory/api/nuget/v3/nuget-local/index.json",
-    [string]$LookupUri = "https://unanet.jfrog.io/artifactory/api/nuget/v3/nuget/index.json",
-    [string]$Token,
-    [string]$UserName,
+    [string]$ApiKey,
     [string]$ModulePath
 )
 
@@ -92,16 +63,10 @@ function Get-PoshUIPackageStatus {
     [OutputType([PSCustomObject])]
     param(
         [Parameter(Mandatory)]
-        [string]$RepositoryName,
-
-        [Parameter(Mandatory)]
         [string]$PackageName,
 
         [Parameter(Mandatory)]
-        [string]$Version,
-
-        [Parameter(Mandatory)]
-        [PSCredential]$Credential
+        [string]$Version
     )
 
     $findErrors = @()
@@ -109,8 +74,7 @@ function Get-PoshUIPackageStatus {
         Find-PSResource `
             -Name $PackageName `
             -Version $Version `
-            -Repository $RepositoryName `
-            -Credential $Credential `
+            -Repository PSGallery `
             -ErrorAction SilentlyContinue `
             -ErrorVariable +findErrors
     )
@@ -123,7 +87,7 @@ function Get-PoshUIPackageStatus {
         throw $unexpectedErrors[0]
     }
     if ($resources.Count -gt 1) {
-        throw "The consumer repository returned more than one PoshUI $Version package."
+        throw "The PowerShell Gallery returned more than one PoshUI $Version package."
     }
 
     return [PSCustomObject]@{
@@ -182,19 +146,13 @@ function Test-PoshUIPublishedPayloadMatch {
     [OutputType([bool])]
     param(
         [Parameter(Mandatory)]
-        [string]$RepositoryName,
-
-        [Parameter(Mandatory)]
         [string]$PackageName,
 
         [Parameter(Mandatory)]
         [string]$Version,
 
         [Parameter(Mandatory)]
-        [string]$SourcePath,
-
-        [Parameter(Mandatory)]
-        [PSCredential]$Credential
+        [string]$SourcePath
     )
 
     $temporaryRoot = Join-Path ([Environment]::GetFolderPath('UserProfile')) "tmp/posh-ui-publish-$([guid]::NewGuid().ToString('N'))"
@@ -205,8 +163,7 @@ function Test-PoshUIPublishedPayloadMatch {
         Save-PSResource `
             -Name $PackageName `
             -Version $Version `
-            -Repository $RepositoryName `
-            -Credential $Credential `
+            -Repository PSGallery `
             -Path $temporaryRoot `
             -AsNupkg `
             -TrustRepository `
@@ -226,51 +183,30 @@ function Test-PoshUIPublishedPayloadMatch {
     }
 }
 
-if (-not $UserName) { $UserName = $env:JFROG_USER }
-if (-not $UserName) { $UserName = $env:JFROG_USERNAME }
-if (-not $UserName) {
-    throw "No -UserName given and neither JFROG_USER nor JFROG_USERNAME is set, so the publish cannot authenticate."
-}
-
-if (-not $Token) {
-    $Token = $env:JFROG_API_KEY
-    if (-not $Token) {
-        throw "No -Token given and JFROG_API_KEY is not set, so the publish cannot authenticate."
-    }
+if (-not $ApiKey) { $ApiKey = $env:PSGALLERY_API_KEY }
+if (-not $ApiKey) {
+    throw "No -ApiKey given and PSGALLERY_API_KEY is not set, so the publish cannot authenticate."
 }
 
 $version = (Import-PowerShellDataFile -Path (Join-Path $ModulePath "PoshUI.psd1")).ModuleVersion
 Write-Verbose "Publishing PoshUI $version from $ModulePath"
 
-# A name local to this run. Registering is machine state, so it is removed in
-# finally whether or not the push succeeds.
-$repositoryName = "posh-ui-publish-$PID"
-$lookupRepositoryName = "posh-ui-lookup-$PID"
-
-if (-not $PSCmdlet.ShouldProcess($FeedUri, "Publish PoshUI $version")) { return }
+if (-not $PSCmdlet.ShouldProcess('PSGallery', "Publish PoshUI $version")) { return }
 
 $packageStage = New-PoshUIPackageStage -SourcePath $ModulePath
 try {
-    Register-PSResourceRepository -Name $repositoryName -Uri $FeedUri -ApiVersion V3 -Trusted -Force
-    Register-PSResourceRepository -Name $lookupRepositoryName -Uri $LookupUri -ApiVersion V3 -Trusted -Force
-    $credential = [PSCredential]::new(
-        $UserName,
-        (ConvertTo-SecureString $Token -AsPlainText -Force))
-
-    $status = Get-PoshUIPackageStatus -RepositoryName $lookupRepositoryName -PackageName 'PoshUI' -Version $version -Credential $credential
+    $status = Get-PoshUIPackageStatus -PackageName 'PoshUI' -Version $version
     if ($status.Published) {
-        if (Test-PoshUIPublishedPayloadMatch -RepositoryName $lookupRepositoryName -PackageName 'PoshUI' -Version $version -SourcePath $packageStage -Credential $credential) {
+        if (Test-PoshUIPublishedPayloadMatch -PackageName 'PoshUI' -Version $version -SourcePath $packageStage) {
             Write-Information "PoshUI $version is already published with the exact expected payload." -InformationAction Continue
             return
         }
-        throw "PoshUI $version is already published to $FeedUri with different package content. Refusing to overwrite it."
+        throw "PoshUI $version is already published to the PowerShell Gallery with different package content. Refusing to overwrite it."
     }
 
-    Publish-PSResource -Path $packageStage -Repository $repositoryName -Credential $credential -SkipDependenciesCheck
-    Write-Information "Published PoshUI $version to $FeedUri" -InformationAction Continue
+    Publish-PSResource -Path $packageStage -Repository PSGallery -ApiKey $ApiKey -SkipDependenciesCheck
+    Write-Information "Published PoshUI $version to the PowerShell Gallery" -InformationAction Continue
 }
 finally {
-    Unregister-PSResourceRepository -Name $repositoryName -ErrorAction SilentlyContinue
-    Unregister-PSResourceRepository -Name $lookupRepositoryName -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $packageStage -Recurse -Force -ErrorAction SilentlyContinue
 }

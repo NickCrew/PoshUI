@@ -4,10 +4,11 @@ BeforeAll {
     $script:RepositoryRoot = Split-Path -Parent $PSScriptRoot
     $script:PublishScript = Join-Path $script:RepositoryRoot 'tools/Publish-PoshUIModule.ps1'
     $script:AutomaticReleaseScript = Join-Path $script:RepositoryRoot 'scripts/automatic_release.sh'
+    $script:WorkflowPath = Join-Path $script:RepositoryRoot '.github/workflows/ci.yml'
     $script:ManifestPath = Join-Path $script:RepositoryRoot 'powershell/PoshUI.psd1'
     $script:ManifestVersion = (Import-PowerShellDataFile -Path $script:ManifestPath).ModuleVersion
 
-    function Get-CiJobBlock {
+    function Get-WorkflowJobBlock {
         param(
             [Parameter(Mandatory)][string]$Content,
             [Parameter(Mandatory)][string]$Name
@@ -16,7 +17,7 @@ BeforeAll {
         $escaped = [regex]::Escape($Name)
         return [regex]::Match(
             $Content,
-            "(?ms)^${escaped}:\s*`$(.*?)(?=^[a-zA-Z][a-zA-Z0-9:-]*:\s*`$|\z)"
+            "(?ms)^  ${escaped}:\s*`$(.*?)(?=^  [a-zA-Z][a-zA-Z0-9_-]*:\s*`$|\z)"
         ).Groups[1].Value
     }
 
@@ -48,12 +49,10 @@ BeforeAll {
 
 Describe 'Publish-PoshUIModule feed guard' {
     BeforeEach {
-        $env:JFROG_API_KEY = $null
+        $env:PSGALLERY_API_KEY = $null
         $env:POSHUI_TEST_VERSION = $script:ManifestVersion
         $env:POSHUI_TEST_NUPKG = $null
 
-        Mock Register-PSResourceRepository {}
-        Mock Unregister-PSResourceRepository {}
         Mock Publish-PSResource {}
         Mock Find-PSResource {}
         Mock Save-PSResource {}
@@ -61,7 +60,7 @@ Describe 'Publish-PoshUIModule feed guard' {
     }
 
     AfterEach {
-        $env:JFROG_API_KEY = $null
+        $env:PSGALLERY_API_KEY = $null
         $env:POSHUI_TEST_VERSION = $null
         $env:POSHUI_TEST_NUPKG = $null
     }
@@ -78,14 +77,13 @@ Describe 'Publish-PoshUIModule feed guard' {
             Copy-Item -LiteralPath $env:POSHUI_TEST_NUPKG -Destination (Join-Path $Path "PoshUI.$($env:POSHUI_TEST_VERSION).nupkg")
         }
 
-        & $script:PublishScript -UserName 'ci-user' -Token 'secret' -FeedUri 'https://artifactory.example.test/api/nuget/v3/feed/index.json' -LookupUri 'https://artifactory.example.test/api/nuget/v3/lookup/index.json'
+        & $script:PublishScript -ApiKey 'secret'
 
         Should -Invoke Publish-PSResource -Times 0 -Exactly
         Should -Invoke Save-PSResource -Times 1 -Exactly
         Should -Invoke Write-Information -Times 1 -Exactly -ParameterFilter {
             $Message -eq "PoshUI $($env:POSHUI_TEST_VERSION) is already published with the exact expected payload."
         }
-        Should -Invoke Unregister-PSResourceRepository -Times 2 -Exactly
     }
 
     It 'fails closed when the published version has different package content' {
@@ -102,159 +100,117 @@ Describe 'Publish-PoshUIModule feed guard' {
         }
 
         {
-            & $script:PublishScript -UserName 'ci-user' -Token 'secret' -FeedUri 'https://artifactory.example.test/api/nuget/v3/feed/index.json' -LookupUri 'https://artifactory.example.test/api/nuget/v3/lookup/index.json'
+            & $script:PublishScript -ApiKey 'secret'
         } | Should -Throw -ExpectedMessage "*PoshUI $($script:ManifestVersion)*different package content*"
 
         Should -Invoke Publish-PSResource -Times 0 -Exactly
         Should -Invoke Save-PSResource -Times 1 -Exactly
-        Should -Invoke Unregister-PSResourceRepository -Times 2 -Exactly
     }
 
-    It 'uses consumer metadata while keeping the writable feed as the publish target' {
-        & $script:PublishScript `
-            -UserName 'ci-user' `
-            -Token 'secret' `
-            -FeedUri 'https://artifactory.example.test/api/nuget/v3/feed/index.json' `
-            -LookupUri 'https://artifactory.example.test/api/nuget/v3/lookup/index.json'
+    It 'looks up and publishes against the PowerShell Gallery using the supplied API key' {
+        & $script:PublishScript -ApiKey 'secret'
 
         Should -Invoke Find-PSResource -Times 1 -Exactly -ParameterFilter {
-            $Name -eq 'PoshUI' -and $Version -eq $script:ManifestVersion -and $Repository -like 'posh-ui-lookup-*'
+            $Name -eq 'PoshUI' -and $Version -eq $script:ManifestVersion -and $Repository -eq 'PSGallery'
         }
-        Should -Invoke Register-PSResourceRepository -Times 1 -Exactly -ParameterFilter {
-            $Uri -eq 'https://artifactory.example.test/api/nuget/v3/feed/index.json'
+        Should -Invoke Publish-PSResource -Times 1 -Exactly -ParameterFilter {
+            $Repository -eq 'PSGallery' -and $ApiKey -eq 'secret'
         }
-        Should -Invoke Register-PSResourceRepository -Times 1 -Exactly -ParameterFilter {
-            $Uri -eq 'https://artifactory.example.test/api/nuget/v3/lookup/index.json'
-        }
-        Should -Invoke Publish-PSResource -Times 1 -Exactly
     }
 
-    It 'publishes when the consumer repository has no exact version' {
-        & $script:PublishScript -UserName 'ci-user' -Token 'secret' -FeedUri 'https://artifactory.example.test/api/nuget/v3/feed/index.json' -LookupUri 'https://artifactory.example.test/api/nuget/v3/lookup/index.json'
+    It 'publishes when the gallery has no exact version' {
+        & $script:PublishScript -ApiKey 'secret'
 
         Should -Invoke Publish-PSResource -Times 1 -Exactly
     }
 
-    It 'fails closed when the consumer repository lookup fails unexpectedly' {
-        Mock Find-PSResource { throw 'consumer repository unavailable' }
+    It 'fails closed when the gallery lookup fails unexpectedly' {
+        Mock Find-PSResource { throw 'gallery unavailable' }
 
         {
-            & $script:PublishScript -UserName 'ci-user' -Token 'secret' -FeedUri 'https://artifactory.example.test/api/nuget/v3/feed/index.json' -LookupUri 'https://artifactory.example.test/api/nuget/v3/lookup/index.json'
-        } | Should -Throw -ExpectedMessage '*consumer repository unavailable*'
+            & $script:PublishScript -ApiKey 'secret'
+        } | Should -Throw -ExpectedMessage '*gallery unavailable*'
+
+        Should -Invoke Publish-PSResource -Times 0 -Exactly
+    }
+
+    It 'requires an API key from a parameter or the environment' {
+        {
+            & $script:PublishScript
+        } | Should -Throw -ExpectedMessage '*PSGALLERY_API_KEY*'
 
         Should -Invoke Publish-PSResource -Times 0 -Exactly
     }
 }
 
 Describe 'Release workflow contract' {
-    It 'excludes generated release commits before creating another pipeline' {
-        $ci = Get-Content -LiteralPath (Join-Path $script:RepositoryRoot '.gitlab-ci.yml') -Raw
-        $workflow = Get-CiJobBlock -Content $ci -Name 'workflow'
+    It 'runs the release chain only on a direct push to main, never on a pull request' {
+        $ci = Get-Content -LiteralPath $script:WorkflowPath -Raw
+        $release = Get-WorkflowJobBlock -Content $ci -Name 'automatic-release'
+        $publish = Get-WorkflowJobBlock -Content $ci -Name 'publish'
 
-        $workflow | Should -Match 'CI_COMMIT_BRANCH == \$CI_DEFAULT_BRANCH.*CI_COMMIT_MESSAGE.*chore\\\(release\\\): v'
-        $workflow | Should -Match '(?m)^\s+when: never$'
+        $release | Should -Match 'if:\s*"?github\.event_name == ''push'''
+        $release | Should -Match 'chore\(release\): v'
+        $publish | Should -Match 'needs\.automatic-release\.outputs\.release_tag'
     }
 
-    It 'installs git for every job using the shared PowerShell image' {
-        $ci = Get-Content -LiteralPath (Join-Path $script:RepositoryRoot '.gitlab-ci.yml') -Raw
-        $sharedPowerShell = Get-CiJobBlock -Content $ci -Name '.pwsh'
-
-        $sharedPowerShell | Should -Match 'apt-get install[^\r\n]+\bgit\b'
-    }
-
-    It 'requires the environment runtime locally and pins available CI environments' {
-        $ci = Get-Content -LiteralPath (Join-Path $script:RepositoryRoot '.gitlab-ci.yml') -Raw
-        $build = Get-Content -LiteralPath (Join-Path $script:RepositoryRoot 'build.ps1') -Raw
-        $windows = Get-CiJobBlock -Content $ci -Name 'pester-windows'
+    It 'installs the pinned PowerShell version for every job that needs it' {
+        $ci = Get-Content -LiteralPath $script:WorkflowPath -Raw
+        $action = Get-Content -LiteralPath (Join-Path $script:RepositoryRoot '.github/actions/setup-pwsh/action.yml') -Raw
 
         $ci | Should -Match 'POWERSHELL_VERSION:\s*"7\.6\.4"'
-        $build | Should -Match '(?m)^#Requires -Version 7\.6\r?$'
-        $build | Should -Match '\[Environment\]::ProcessPath'
-        $windows | Should -Match '\$installedVersion -ne \$env:POWERSHELL_VERSION'
+        $action | Should -Match 'sha256sum --check --status'
     }
 
     It 'does not schedule work on an unavailable macOS runner' {
-        $ci = Get-Content -LiteralPath (Join-Path $script:RepositoryRoot '.gitlab-ci.yml') -Raw
+        $ci = Get-Content -LiteralPath $script:WorkflowPath -Raw
 
-        $ci | Should -Not -Match '(?m)^pester-macos:'
-        $ci | Should -Not -Match '(?m)^\s+- macmini$'
+        $ci | Should -Not -Match 'runs-on:\s*macos-'
     }
 
-    It 'automatically releases and publishes a green default-branch squash' {
-        $ci = Get-Content -LiteralPath (Join-Path $script:RepositoryRoot '.gitlab-ci.yml') -Raw
-        $release = Get-CiJobBlock -Content $ci -Name 'automatic-release'
-        $publish = [regex]::Match(
-            $ci,
-            '(?ms)^publish:\s*$(.*?)(?=^[a-zA-Z][a-zA-Z0-9-]*:\s*$)'
-        ).Groups[1].Value
+    It 'runs the Windows Pester job on the windows-latest runner' {
+        $ci = Get-Content -LiteralPath $script:WorkflowPath -Raw
+        $windows = Get-WorkflowJobBlock -Content $ci -Name 'pester-windows'
 
-        $release | Should -Match '\$CI_COMMIT_BRANCH == \$CI_DEFAULT_BRANCH'
+        $windows | Should -Match 'runs-on:\s*windows-latest'
+        $windows | Should -Match '\$installedVersion -ne \$env:POWERSHELL_VERSION'
+    }
+
+    It 'automatically releases and publishes a green default-branch push' {
+        $ci = Get-Content -LiteralPath $script:WorkflowPath -Raw
+        $release = Get-WorkflowJobBlock -Content $ci -Name 'automatic-release'
+        $publish = Get-WorkflowJobBlock -Content $ci -Name 'publish'
+
         $release | Should -Match 'scripts/automatic_release\.sh'
-        $release | Should -Not -Match '(?m)^\s+when: manual$'
-        $release | Should -Not -Match 'CI_COMMIT_TAG'
-        $publish | Should -Match '\$CI_COMMIT_BRANCH == \$CI_DEFAULT_BRANCH'
-        $publish | Should -Not -Match '(?m)^\s+when: manual$'
-        $publish | Should -Not -Match 'CI_COMMIT_TAG'
+        $publish | Should -Match 'Publish-PoshUIModule\.ps1'
+        $publish | Should -Match 'needs:\s*automatic-release'
     }
 
-    It 'previews merge-request release intent without mutation or publication' {
-        $ci = Get-Content -LiteralPath (Join-Path $script:RepositoryRoot '.gitlab-ci.yml') -Raw
-        $preview = Get-CiJobBlock -Content $ci -Name 'version-not-released'
-        $release = Get-CiJobBlock -Content $ci -Name 'automatic-release'
-        $publish = Get-CiJobBlock -Content $ci -Name 'publish'
+    It 'serializes release operations across concurrent runs' {
+        $ci = Get-Content -LiteralPath $script:WorkflowPath -Raw
 
-        $ci | Should -Match '\$CI_PIPELINE_SOURCE == "merge_request_event"'
-        $preview | Should -Match 'Get-NextVersion\.ps1'
-        $preview | Should -Not -Match '(?:-Apply|automatic_release|Publish-PoshUIModule|git\s+push)'
-        $release | Should -Match '\$CI_COMMIT_BRANCH == \$CI_DEFAULT_BRANCH'
-        $release | Should -Not -Match 'merge_request_event'
-        $publish | Should -Match '\$CI_COMMIT_BRANCH == \$CI_DEFAULT_BRANCH'
-        $publish | Should -Not -Match 'merge_request_event'
+        $ci | Should -Match '(?m)^concurrency:$'
+        $ci | Should -Match 'group:\s*posh-ui-release'
     }
 
-    It 'serializes non-interruptible release operations' {
-        $ci = Get-Content -LiteralPath (Join-Path $script:RepositoryRoot '.gitlab-ci.yml') -Raw
-        $release = Get-CiJobBlock -Content $ci -Name 'automatic-release'
-        $publish = Get-CiJobBlock -Content $ci -Name 'publish'
+    It 'publishes and records the exact tag produced by the release job' {
+        $ci = Get-Content -LiteralPath $script:WorkflowPath -Raw
+        $publish = Get-WorkflowJobBlock -Content $ci -Name 'publish'
+        $githubRelease = Get-WorkflowJobBlock -Content $ci -Name 'github-release'
 
-        $release | Should -Match '(?m)^\s+interruptible: false$'
-        $release | Should -Match '(?m)^\s+resource_group: posh-ui-release$'
-        $publish | Should -Match '(?m)^\s+interruptible: false$'
-        $publish | Should -Match '(?m)^\s+resource_group: posh-ui-release$'
-        $publish | Should -Match '(?ms)^\s+needs:\s+.*?job: automatic-release\s+.*?artifacts: true'
-    }
-
-    It 'publishes and records the exact tag produced by the branch pipeline' {
-        $ci = Get-Content -LiteralPath (Join-Path $script:RepositoryRoot '.gitlab-ci.yml') -Raw
-        $release = Get-CiJobBlock -Content $ci -Name 'automatic-release'
-        $publish = Get-CiJobBlock -Content $ci -Name 'publish'
-        $gitlabRelease = Get-CiJobBlock -Content $ci -Name 'gitlab-release'
-
-        $release | Should -Match '(?ms)^\s+artifacts:\s+.*?reports:\s+.*?dotenv: \.release/release\.env'
-        $publish | Should -Match '\.release/version'
         $publish | Should -Match 'git\s+fetch[^\r\n]+refs/tags/'
         $publish | Should -Match 'git\s+checkout\s+--detach'
-        $gitlabRelease | Should -Match 'POSHUI_RELEASE_TAG'
-        $gitlabRelease | Should -Match 'GITLAB_HOST:\s*["'']?\$CI_SERVER_FQDN'
-        $gitlabRelease | Should -Match 'GITLAB_TOKEN:\s*["'']?\$CI_JOB_TOKEN'
-        $gitlabRelease | Should -Not -Match 'CI_COMMIT_TAG'
-        $gitlabRelease | Should -Match '\$CI_COMMIT_BRANCH == \$CI_DEFAULT_BRANCH'
-        $gitlabRelease | Should -Match '(?ms)^\s+needs:\s+.*?job: publish\s+.*?artifacts: true'
-        $gitlabRelease | Should -Match '(?ms)\[\s+-z\s+["'']?\$\{?POSHUI_RELEASE_TAG.{0,200}?exit\s+0'
-        $gitlabRelease | Should -Match 'glab\s+release\s+create'
-        $gitlabRelease | Should -Match '--repo\s+["'']?\$CI_PROJECT_PATH'
-        $gitlabRelease | Should -Not -Match 'glab\s+release\s+create[^\r\n]+--no-update'
-        $gitlabRelease | Should -Match '\.release/notes\.md'
-        $gitlabRelease | Should -Not -Match '(?m)^\s+release:$'
+        $githubRelease | Should -Match 'needs:\s*\[automatic-release, publish\]'
+        $githubRelease | Should -Match 'gh\s+release\s+create'
+        $githubRelease | Should -Match '\.release/notes\.md'
     }
 
     It 'fails closed, pushes the release atomically, and prevents release recursion' {
         Test-Path -LiteralPath $script:AutomaticReleaseScript -PathType Leaf | Should -BeTrue
         $release = Get-Content -LiteralPath $script:AutomaticReleaseScript -Raw
 
-        $release | Should -Match 'CI_COMMIT_SHA'
-        $release | Should -Match 'CI_DEFAULT_BRANCH'
-        $release | Should -Match 'GITLAB_TOKEN'
+        $release | Should -Match 'GITHUB_SHA'
+        $release | Should -Match 'DEFAULT_BRANCH'
         $release | Should -Match 'Get-NextVersion\.ps1'
         $release | Should -Match 'Nothing to release'
         $release | Should -Match '\[skip ci\]'
