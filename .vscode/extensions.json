@@ -1,0 +1,8 @@
+{
+    "recommendations": [
+        "ms-vscode.powershell",
+        "editorconfig.editorconfig",
+        "gitlab.gitlab-workflow",
+        "hverlin.mise-vscode"
+    ]
+}

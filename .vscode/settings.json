@@ -1,0 +1,23 @@
+{
+    "powershell.scriptAnalysis.settingsPath": "PSScriptAnalyzerSettings.psd1",
+    "files.eol": "\n",
+    "files.insertFinalNewline": true,
+    "files.trimTrailingWhitespace": true,
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.fixAll": "explicit"
+    },
+    "files.exclude": {
+        "temp/**": true,
+        "logs/**": true
+    },
+    "files.watcherExclude": {
+        "temp/**": true,
+        "logs/**": true
+    },
+    "search.exclude": {
+        "temp/**": true,
+        "logs/**": true
+    },
+    "terminal.integrated.defaultProfile.osx": "zsh"
+}

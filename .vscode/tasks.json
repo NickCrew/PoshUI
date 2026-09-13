@@ -1,0 +1,43 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "mise: check",
+            "type": "shell",
+            "command": "mise",
+            "args": ["run", "check"],
+            "group": { "kind": "test", "isDefault": true },
+            "problemMatcher": []
+        },
+        {
+            "label": "mise: test",
+            "type": "shell",
+            "command": "mise",
+            "args": ["run", "test"],
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "mise: lint",
+            "type": "shell",
+            "command": "mise",
+            "args": ["run", "lint"],
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "mise: version check",
+            "type": "shell",
+            "command": "mise",
+            "args": ["run", "version-check"],
+            "problemMatcher": []
+        },
+        {
+            "label": "mise: release plan",
+            "type": "shell",
+            "command": "mise",
+            "args": ["run", "release-plan"],
+            "problemMatcher": []
+        }
+    ]
+}

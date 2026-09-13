@@ -1,0 +1,41 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "name": "PowerShell: Run Pester Tests",
+            "type": "PowerShell",
+            "request": "launch",
+            "script": "${workspaceFolder}/powershell/tests/Invoke-Tests.ps1",
+            "cwd": "${workspaceFolder}",
+            "createTemporaryIntegratedConsole": true,
+            "attachDotnetDebugger": true
+        },
+        {
+            "name": "PowerShell: Debug Single Test File",
+            "type": "PowerShell",
+            "request": "launch",
+            "script": "${input:testFilePath}",
+            "cwd": "${workspaceFolder}",
+            "createTemporaryIntegratedConsole": true,
+            "attachDotnetDebugger": true
+        },
+        {
+            "name": "PowerShell: Debug Current File",
+            "type": "PowerShell",
+            "request": "launch",
+            "script": "${file}",
+            "cwd": "${workspaceFolder}",
+            "createTemporaryIntegratedConsole": true,
+            "attachDotnetDebugger": true
+        }
+    ],
+    "inputs": [
+        {
+            "id": "testFilePath",
+            "type": "promptString",
+            "description": "Path to a single test file (relative to workspace root)",
+            "default": "powershell/tests/PoshUI.Tests.ps1"
+        }
+    ]
+}
