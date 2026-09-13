@@ -11,13 +11,21 @@ BeforeAll {
     )
 
     function New-ReleaseRepository {
-        param([Parameter(Mandatory)][string]$Path)
+        param(
+            [Parameter(Mandatory)][string]$Path,
+            [switch]$NoBaselineTag
+        )
 
         foreach ($relative in @('tools/Invoke-ReleaseChangelog.ps1', 'tools/Get-NextVersion.ps1', 'tools/Set-Version.ps1') + $script:VersionSites) {
             $destination = Join-Path $Path $relative
             New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
             Copy-Item -LiteralPath (Join-Path $script:RepoRoot $relative) -Destination $destination
         }
+        # Pinned so the fixture's baseline is deterministic whether or not a
+        # v* tag is created below, independent of this repo's live manifest.
+        $manifestCopy = Join-Path $Path 'powershell/PoshUI.psd1'
+        (Get-Content -LiteralPath $manifestCopy -Raw) -replace "(?m)^(\s*ModuleVersion\s*=\s*)'[^']+'", "`${1}'2.1.1'" |
+            Set-Content -LiteralPath $manifestCopy -NoNewline
         Set-Content -LiteralPath (Join-Path $Path 'CHANGELOG.md') -Value @'
 # Changelog
 
@@ -38,7 +46,9 @@ BeforeAll {
         & git -C $Path config user.email 'release@example.test'
         & git -C $Path add .
         & git -C $Path commit --quiet -m 'chore: baseline'
-        & git -C $Path tag v2.1.1
+        if (-not $NoBaselineTag) {
+            & git -C $Path tag v2.1.1
+        }
     }
 
     function Add-ReleaseCommit {
@@ -63,6 +73,27 @@ Describe 'Release changelog contract' {
         $publish | Should -Match '\.release/notes\.md'
         $githubRelease | Should -Match '\.release/notes\.md'
         $githubRelease | Should -Match 'gh\s+release\s+create'
+    }
+
+    It 'derives and applies the first-ever release before any v* tag exists' {
+        $repo = Join-Path $TestDrive 'no-baseline-tag'
+        New-ReleaseRepository -Path $repo -NoBaselineTag
+        $changelog = Join-Path $repo 'CHANGELOG.md'
+        $content = [regex]::Replace(
+            [IO.File]::ReadAllText($changelog),
+            '(?m)^## \[Unreleased\]\r?\n',
+            "## [Unreleased]`n`n### Added`n`n- A deliberately curated operator note.`n"
+        )
+        [IO.File]::WriteAllText($changelog, $content)
+        Add-ReleaseCommit -Path $repo -Subject 'feat(rendering): add compact tables'
+
+        { & (Join-Path $repo 'tools/Get-NextVersion.ps1') -Apply } | Should -Not -Throw
+
+        (Import-PowerShellDataFile (Join-Path $repo 'powershell/PoshUI.psd1')).ModuleVersion |
+            Should -Be '2.2.0'
+        $result = [IO.File]::ReadAllText($changelog)
+        $result | Should -Match '(?ms)^## \[2\.2\.0\] - \d{4}-\d{2}-\d{2}\s+### Added\s+- A deliberately curated operator note\.'
+        $result | Should -Match '\[2\.2\.0\]:.*v2\.1\.1\.\.\.v2\.2\.0'
     }
 
     It 'rolls curated Unreleased notes when applying the derived version' {

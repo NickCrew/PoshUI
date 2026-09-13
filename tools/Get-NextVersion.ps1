@@ -189,16 +189,21 @@ Write-Verbose "$($commit.Count) commit(s) since $baseline imply a $winning bump:
 
 if ($Apply) {
     if ($PSCmdlet.ShouldProcess('release metadata', "Set version and changelog to $next")) {
+        # Before the first v* tag exists, $tag is null. Invoke-ReleaseChangelog.ps1
+        # requires -SinceTag to match a vX.Y.Z tag, and the manifest baseline
+        # already satisfies that shape, so it stands in as the changelog's
+        # "since" reference until a real tag exists.
+        $changelogSinceTag = if ($tag) { $tag } else { "v$baseline" }
         & (Join-Path $PSScriptRoot 'Invoke-ReleaseChangelog.ps1') `
             -Action Preflight `
             -Version $next `
-            -SinceTag $tag
+            -SinceTag $changelogSinceTag
 
         & (Join-Path $PSScriptRoot "Set-Version.ps1") -Version $next
         & (Join-Path $PSScriptRoot 'Invoke-ReleaseChangelog.ps1') `
             -Action Prepare `
             -Version $next `
-            -SinceTag $tag
+            -SinceTag $changelogSinceTag
     }
 }
 
