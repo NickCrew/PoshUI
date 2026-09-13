@@ -173,7 +173,7 @@ Describe 'Release workflow contract' {
         $windows = Get-WorkflowJobBlock -Content $ci -Name 'pester-windows'
 
         $windows | Should -Match 'runs-on:\s*windows-latest'
-        $windows | Should -Match '\$installedVersion -ne \$env:POWERSHELL_VERSION'
+        $windows | Should -Match '\[version\]\$installedVersion -ge \[version\]\$env:POWERSHELL_VERSION'
     }
 
     It 'automatically releases and publishes a green default-branch push' {

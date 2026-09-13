@@ -113,22 +113,25 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Ensure pinned PowerShell
+      - name: Ensure PowerShell at least the pinned version
         shell: pwsh
         run: |
           $pwshPath = 'C:\Program Files\PowerShell\7\pwsh.exe'
           $installedVersion = if (Test-Path -LiteralPath $pwshPath -PathType Leaf) {
             & $pwshPath -NoLogo -NoProfile -NonInteractive -Command '$PSVersionTable.PSVersion.ToString()'
           }
-          if ($installedVersion -ne $env:POWERSHELL_VERSION) {
+          if ($installedVersion -and [version]$installedVersion -ge [version]$env:POWERSHELL_VERSION) {
+            Write-Host "PowerShell $installedVersion is already installed and satisfies the $env:POWERSHELL_VERSION minimum."
+          }
+          else {
             choco install powershell-core --version=$env:POWERSHELL_VERSION --force --allow-downgrade -y --no-progress --limit-output | Out-Null
-          }
-          if (-not (Test-Path -LiteralPath $pwshPath -PathType Leaf)) {
-            throw "PowerShell $env:POWERSHELL_VERSION was not installed at $pwshPath"
-          }
-          $installedVersion = & $pwshPath -NoLogo -NoProfile -NonInteractive -Command '$PSVersionTable.PSVersion.ToString()'
-          if ($installedVersion -ne $env:POWERSHELL_VERSION) {
-            throw "Expected PowerShell $env:POWERSHELL_VERSION, found $installedVersion."
+            if (-not (Test-Path -LiteralPath $pwshPath -PathType Leaf)) {
+              throw "PowerShell $env:POWERSHELL_VERSION was not installed at $pwshPath"
+            }
+            $installedVersion = & $pwshPath -NoLogo -NoProfile -NonInteractive -Command '$PSVersionTable.PSVersion.ToString()'
+            if ([version]$installedVersion -lt [version]$env:POWERSHELL_VERSION) {
+              throw "Expected at least PowerShell $env:POWERSHELL_VERSION, found $installedVersion."
+            }
           }
           & $pwshPath -NoLogo -NoProfile -NonInteractive -Command '
             Set-PSRepository PSGallery -InstallationPolicy Trusted
