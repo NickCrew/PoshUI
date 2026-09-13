@@ -5,6 +5,7 @@ on:
     branches: [main]
   push:
     branches: [main]
+  workflow_dispatch:
 
 env:
   POWERSHELL_VERSION: "7.6.4"
@@ -158,7 +159,7 @@ jobs:
   # credential helper for GITHUB_TOKEN, so scripts/automatic_release.sh can
   # push back to `origin` without any manual token plumbing.
   automatic-release:
-    if: "github.event_name == 'push' && !startsWith(github.event.head_commit.message, 'chore(release): v')"
+    if: "github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && !startsWith(github.event.head_commit.message, 'chore(release): v'))"
     needs: [version-consistent, version-not-released, lint, pester, pester-windows]
     runs-on: ubuntu-latest
     outputs:

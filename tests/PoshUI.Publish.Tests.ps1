@@ -149,9 +149,16 @@ Describe 'Release workflow contract' {
         $release = Get-WorkflowJobBlock -Content $ci -Name 'automatic-release'
         $publish = Get-WorkflowJobBlock -Content $ci -Name 'publish'
 
-        $release | Should -Match 'if:\s*"?github\.event_name == ''push'''
+        $release | Should -Match "github\.event_name == 'push'"
+        $release | Should -Match "github\.event_name == 'workflow_dispatch'"
         $release | Should -Match 'chore\(release\): v'
         $publish | Should -Match 'needs\.automatic-release\.outputs\.release_tag'
+    }
+
+    It 'can be triggered manually to retry the release chain without a new commit' {
+        $ci = Get-Content -LiteralPath $script:WorkflowPath -Raw
+
+        $ci | Should -Match '(?m)^  workflow_dispatch:\s*$'
     }
 
     It 'installs the pinned PowerShell version for every job that needs it' {
