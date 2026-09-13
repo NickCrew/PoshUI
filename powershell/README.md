@@ -17,15 +17,7 @@ From a checkout:
 Import-Module ./powershell/PoshUI.psd1
 ```
 
-The repository installer uses the standard `PoshUI/<version>` module layout and stages only `PoshUI.psd1`, `PoshUI.psm1`, `README.md`, and `modules/`:
-
-```powershell
-./powershell/tools/Install-PoshUIModule.ps1
-./powershell/tools/Install-PoshUIModule.ps1 -Action Status
-./powershell/tools/Install-PoshUIModule.ps1 -Action Uninstall
-```
-
-Repository-only assets such as `bin/`, `examples/`, `tests/`, and `tools/` are not included in installed packages.
+The published package uses the standard `PoshUI/<version>` module layout and stages only `PoshUI.psd1`, `PoshUI.psm1`, `README.md`, and `modules/`. Repository-only assets such as `bin/`, `examples/`, `tests/`, and `tools/` are not included in installed packages.
 
 ## Composition model
 
@@ -59,17 +51,17 @@ Feature toggles use `POSH_UI_LOAD_<FEATURE>=false` and are read during import. A
 
 ## Themes
 
-The Unanet theme is active by default. `Set-PoshUITheme` switches built-in themes while the module is loaded:
+The default theme is active out of the box. `Set-PoshUITheme` switches built-in themes while the module is loaded:
 
 ```powershell
 Set-PoshUITheme -Name light
-Set-PoshUITheme -Name unanet
+Set-PoshUITheme -Name default
 ```
 
 For a custom theme, create an independent value, change its layered tokens, and activate it:
 
 ```powershell
-$theme = New-PoshUITheme -Name unanet
+$theme = New-PoshUITheme -Name default
 $theme.Component.Table.Header = "`e[1;38;2;173;232;58m"
 $theme | Set-PoshUITheme
 ```

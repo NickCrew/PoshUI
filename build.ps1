@@ -65,7 +65,6 @@ param(
         'ci',
         'release-plan',
         'release-apply',
-        'install-local',
         'clean'
     )]
     [string]$Task = 'help',
@@ -208,11 +207,6 @@ function Invoke-BuildReleaseApply {
     Invoke-BuildPowerShellFile -Path (Join-Path $script:RepositoryRoot 'tools/Get-NextVersion.ps1') -ArgumentList $argument
 }
 
-function Invoke-BuildInstallLocal {
-    $argument = if ($WhatIfPreference) { @('-WhatIf') } else { @() }
-    Invoke-BuildPowerShellFile -Path (Join-Path $script:RepositoryRoot 'powershell/tools/Install-PoshUIModule.ps1') -ArgumentList $argument
-}
-
 function Invoke-BuildClean {
     [CmdletBinding(SupportsShouldProcess)]
     param()
@@ -293,11 +287,6 @@ $script:TaskDefinition = [ordered]@{
         Description = 'Apply the semantic version and roll its changelog section'
         DependsOn   = @()
         Action      = { Invoke-BuildReleaseApply }
-    }
-    'install-local'  = @{
-        Description = "Install PoshUI into the current user's PowerShell module path"
-        DependsOn   = @()
-        Action      = { Invoke-BuildInstallLocal }
     }
     'clean'          = @{
         Description = 'Remove generated local test and package output'

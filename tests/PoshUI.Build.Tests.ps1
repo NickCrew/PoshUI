@@ -47,7 +47,6 @@ Describe 'PowerShell build entry point' {
             'ci',
             'release-plan',
             'release-apply',
-            'install-local',
             'clean'
         )) {
             $result.Output | Should -Match "(?m)^  $([regex]::Escape($task))\s+"
