@@ -7,7 +7,7 @@ Start with the [project README](../README.md) for installation and a quick examp
 - [Getting started](guides/getting-started.md): import the module and render the first component.
 - [Compose terminal output](guides/composition.md): combine pure formatters with display commands.
 - [Runtime modes](guides/runtime-modes.md): choose rich, plain, off, or automatic behavior.
-- [Themes](guides/themes.md): use the default Unanet theme or activate a custom theme.
+- [Themes](guides/themes.md): use the default theme or activate a custom theme.
 - [JSONL logging](guides/logging.md): configure the local file sink, rotation, and event data.
 - [PowerShell reference](reference/powershell.md): generated syntax, parameters, inputs, outputs, examples, and notes for all 82 commands.
 

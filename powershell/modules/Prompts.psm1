@@ -89,7 +89,7 @@ function Read-PoshUIPassword {
     .EXAMPLE
         Read-PoshUIPassword -Message 'Password'
     .EXAMPLE
-        $secret = Read-PoshUIPassword 'Artifactory token'
+        $secret = Read-PoshUIPassword 'API token'
     .EXAMPLE
         $credential = [PSCredential]::new('user', (Read-PoshUIPassword 'Token'))
     #>

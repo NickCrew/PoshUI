@@ -221,7 +221,7 @@ theme or the process environment.
 
 | Name | Type | Required | Position | Pipeline | Default | Description |
 | --- | --- | --- | --- | --- | --- | --- |
-| `-Name` | `String` | No | 1 | No | unanet | Built-in theme name. The default is unanet. |
+| `-Name` | `String` | No | 1 | No | default | Built-in theme name. The default is default. |
 
 ### Inputs
 
@@ -244,10 +244,10 @@ Creates the dark theme.
 #### Example 2
 
 ```powershell
-$theme = New-PoshUITheme -Name unanet
+$theme = New-PoshUITheme -Name default
 ```
 
-Creates an independent Unanet theme.
+Creates an independent theme.
 
 #### Example 3
 
@@ -284,7 +284,7 @@ continue to remove all theme control sequences.
 
 | Name | Type | Required | Position | Pipeline | Default | Description |
 | --- | --- | --- | --- | --- | --- | --- |
-| `-Name` | `String` | No | 1 | No | unanet | Built-in theme name. The default is unanet. |
+| `-Name` | `String` | No | 1 | No | default | Built-in theme name. The default is default. |
 | `-Theme` | `PSObject` | Yes | named | true (ByValue) |  | Custom PoshUI.Theme created by New-PoshUITheme and modified by the caller. |
 | `-PassThru` | `SwitchParameter` | No | named | No | False | Returns an independent copy of the active theme. |
 | `-WhatIf` | `SwitchParameter` | No | named | No |  |  |
@@ -306,7 +306,7 @@ continue to remove all theme control sequences.
 Set-PoshUITheme
 ```
 
-Activates the default Unanet theme.
+Activates the default theme.
 
 #### Example 2
 
@@ -319,7 +319,7 @@ Activates and returns a copy of the dark theme.
 #### Example 3
 
 ```powershell
-$theme = New-PoshUITheme -Name unanet
+$theme = New-PoshUITheme -Name default
 $theme.Component.Box.Border = "`e[38;2;82;214;255m"
 $theme | Set-PoshUITheme
 ```
@@ -2053,7 +2053,7 @@ Read-PoshUIPassword -Message 'Password'
 #### Example 2
 
 ```powershell
-$secret = Read-PoshUIPassword 'Artifactory token'
+$secret = Read-PoshUIPassword 'API token'
 ```
 
 #### Example 3

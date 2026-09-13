@@ -37,7 +37,7 @@ function New-PoshUIThemeInternal {
                 Muted      = $primitive.Dim
             }
         }
-        { $_ -in 'unanet', 'unafy' } {
+        { $_ -in 'default', 'aurora' } {
             [ordered]@{
                 Background = "`e[48;2;16;54;90m"
                 Foreground = "`e[38;2;252;252;253m"
@@ -108,7 +108,7 @@ function New-PoshUITheme {
         theme or the process environment.
 
     .PARAMETER Name
-        Built-in theme name. The default is unanet.
+        Built-in theme name. The default is default.
 
     .INPUTS
         None.
@@ -122,9 +122,9 @@ function New-PoshUITheme {
         Creates the dark theme.
 
     .EXAMPLE
-        PS> $theme = New-PoshUITheme -Name unanet
+        PS> $theme = New-PoshUITheme -Name default
 
-        Creates an independent Unanet theme.
+        Creates an independent theme.
 
     .EXAMPLE
         PS> (New-PoshUITheme -Name light).Component.Table.Header
@@ -144,8 +144,8 @@ function New-PoshUITheme {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(
-        [ValidateSet('unanet', 'dark', 'light', 'unafy')]
-        [string]$Name = 'unanet'
+        [ValidateSet('default', 'dark', 'light', 'aurora')]
+        [string]$Name = 'default'
     )
 
     New-PoshUIThemeInternal -Name $Name
@@ -153,7 +153,7 @@ function New-PoshUITheme {
 
 $script:PoshUIConfiguration = [pscustomobject]@{
     PSTypeName = 'PoshUI.Configuration'
-    Theme      = New-PoshUIThemeInternal -Name 'unanet'
+    Theme      = New-PoshUIThemeInternal -Name 'default'
     Progress   = [pscustomobject]@{
         BarCharacter   = [string][char]0x2588
         EmptyCharacter = [string][char]0x2591
@@ -216,7 +216,7 @@ function Set-PoshUITheme {
         caller mutations cannot change module behavior. Plain and off modes
         continue to remove all theme control sequences.
     .PARAMETER Name
-        Built-in theme name. The default is unanet.
+        Built-in theme name. The default is default.
     .PARAMETER Theme
         Custom PoshUI.Theme created by New-PoshUITheme and modified by the caller.
     .PARAMETER PassThru
@@ -228,13 +228,13 @@ function Set-PoshUITheme {
     .EXAMPLE
         Set-PoshUITheme
 
-        Activates the default Unanet theme.
+        Activates the default theme.
     .EXAMPLE
         Set-PoshUITheme -Name dark -PassThru
 
         Activates and returns a copy of the dark theme.
     .EXAMPLE
-        $theme = New-PoshUITheme -Name unanet
+        $theme = New-PoshUITheme -Name default
         $theme.Component.Box.Border = "`e[38;2;82;214;255m"
         $theme | Set-PoshUITheme
 
@@ -251,8 +251,8 @@ function Set-PoshUITheme {
     [OutputType('PoshUI.Theme')]
     param(
         [Parameter(ParameterSetName = 'Name', Position = 0)]
-        [ValidateSet('unanet', 'dark', 'light', 'unafy')]
-        [string]$Name = 'unanet',
+        [ValidateSet('default', 'dark', 'light', 'aurora')]
+        [string]$Name = 'default',
 
         [Parameter(Mandatory, ParameterSetName = 'Theme', ValueFromPipeline)]
         [PSTypeName('PoshUI.Theme')][psobject]$Theme,

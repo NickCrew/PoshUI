@@ -67,12 +67,12 @@ Get-PoshUIRuntime | Format-List
 
 ## Themes
 
-The Unanet theme is active by default. Switch built-in themes at runtime, or create an independent theme and change its semantic or component tokens before activation:
+The default theme is active out of the box. Switch built-in themes at runtime, or create an independent theme and change its semantic or component tokens before activation:
 
 ```powershell
 Set-PoshUITheme -Name dark
 
-$theme = New-PoshUITheme -Name unanet
+$theme = New-PoshUITheme -Name default
 $theme.Component.Box.Border = "`e[38;2;82;214;255m"
 $theme | Set-PoshUITheme
 ```

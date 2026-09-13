@@ -20,7 +20,7 @@ Describe 'Resolved configuration' {
         $configuration.Progress.Width | Should -Be 50
         $configuration.Table.Style | Should -BeExactly 'standard'
         $configuration.Logging.Level | Should -BeExactly 'INFO'
-        $configuration.Theme.Name | Should -BeExactly 'unanet'
+        $configuration.Theme.Name | Should -BeExactly 'default'
         $configuration.Theme.Semantic.Primary | Should -BeExactly "`e[38;2;0;171;254m"
     }
 
@@ -45,9 +45,9 @@ Describe 'Resolved configuration' {
         $second.Component.Table | Should -Not -BeNullOrEmpty
     }
 
-    It 'keeps the v4 Unafy theme name as an Unanet-compatible value' {
-        (New-PoshUITheme -Name unafy).Semantic.Primary |
-            Should -BeExactly (New-PoshUITheme -Name unanet).Semantic.Primary
+    It 'keeps the aurora theme name as an alias for the default palette' {
+        (New-PoshUITheme -Name aurora).Semantic.Primary |
+            Should -BeExactly (New-PoshUITheme -Name default).Semantic.Primary
     }
 
     It 'switches built-in themes for subsequent rich rendering' {
@@ -64,7 +64,7 @@ Describe 'Resolved configuration' {
 
     It 'copies a custom theme before activating its component tokens' {
         $env:POSH_UI_MODE = 'rich'
-        $theme = New-PoshUITheme -Name unanet
+        $theme = New-PoshUITheme -Name default
         $theme.Name = 'custom'
         $theme.Component.Box.Border = "`e[38;2;82;214;255m"
         $theme.Component.Table.Header = "`e[1;38;2;173;232;58m"
@@ -83,17 +83,17 @@ Describe 'Resolved configuration' {
     }
 
     It 'rejects a custom theme with a missing required token' {
-        $theme = New-PoshUITheme -Name unanet
+        $theme = New-PoshUITheme -Name default
         $theme.Component.Box.Remove('Border')
 
         { $theme | Set-PoshUITheme } | Should -Throw "*missing required token 'Component.Box.Border'*"
-        (Get-PoshUIConfiguration).Theme.Name | Should -BeExactly 'unanet'
+        (Get-PoshUIConfiguration).Theme.Name | Should -BeExactly 'default'
     }
 
     It 'honors WhatIf without changing the active theme' {
         Set-PoshUITheme -Name dark -WhatIf
 
-        (Get-PoshUIConfiguration).Theme.Name | Should -BeExactly 'unanet'
+        (Get-PoshUIConfiguration).Theme.Name | Should -BeExactly 'default'
     }
 }
 

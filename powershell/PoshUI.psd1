@@ -3,8 +3,8 @@
     ModuleVersion        = '4.1.0'
     GUID                 = 'db92996d-fec9-4d71-9fd4-40194906da3b'
     Author               = 'Nick Ferguson'
-    CompanyName          = 'Unanet'
-    Copyright            = '(c) Unanet. All rights reserved.'
+    CompanyName          = 'Nick Ferguson'
+    Copyright            = '(c) Nick Ferguson. All rights reserved.'
     Description          = 'Composable terminal UI components, structured logging, and interactive prompts for PowerShell.'
     PowerShellVersion    = '7.6'
     CompatiblePSEditions = @('Core')
@@ -98,8 +98,8 @@
     PrivateData          = @{
         PSData = @{
             Tags         = @('terminal', 'ui', 'console', 'logging', 'jsonl', 'cross-platform')
-            ProjectUri   = 'https://gitlab.unanet.io/cosential/dev-tools/posh-ui'
-            ReleaseNotes = 'https://gitlab.unanet.io/cosential/dev-tools/posh-ui/-/blob/master/CHANGELOG.md'
+            ProjectUri   = 'https://github.com/NickCrew/PoshUI'
+            ReleaseNotes = 'https://github.com/NickCrew/PoshUI/blob/main/CHANGELOG.md'
         }
     }
 }
