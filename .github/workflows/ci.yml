@@ -209,7 +209,7 @@ jobs:
       - name: Publish to the PowerShell Gallery
         env:
           PSGALLERY_API_KEY: ${{ secrets.PSGALLERY_API_KEY }}
-        run: pwsh -NoLogo -NoProfile -NonInteractive -File ./tools/Publish-PoshUIModule.ps1 -ApiKey $env:PSGALLERY_API_KEY -Verbose
+        run: pwsh -NoLogo -NoProfile -NonInteractive -File ./tools/Publish-PoshUIModule.ps1 -ApiKey "$PSGALLERY_API_KEY" -Verbose
       - uses: actions/upload-artifact@v4
         with:
           name: release-notes-verified
