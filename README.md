@@ -1,7 +1,7 @@
 ![PoshUI](docs/assets/readme-banner.png)
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.1.0-blue.svg" alt="Version 4.1.0">
+  <img src="https://img.shields.io/badge/version-4.2.0-blue.svg" alt="Version 4.2.0">
   <img src="https://img.shields.io/badge/powershell-7.6.4-blue.svg" alt="PowerShell 7.6.4 development toolchain">
 </p>
 

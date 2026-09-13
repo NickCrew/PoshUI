@@ -1,6 +1,6 @@
 @{
     RootModule           = 'PoshUI.psm1'
-    ModuleVersion        = '4.1.0'
+    ModuleVersion        = '4.2.0'
     GUID                 = 'db92996d-fec9-4d71-9fd4-40194906da3b'
     Author               = 'Nick Ferguson'
     CompanyName          = 'Nick Ferguson'

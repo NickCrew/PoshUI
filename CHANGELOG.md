@@ -10,6 +10,8 @@ releasable Conventional Commits provide fallback notes.
 
 ## [Unreleased]
 
+## [4.2.0] - 2026-09-13
+
 ### Changed
 
 - Moved CI/CD from GitLab CI to GitHub Actions, and the release feed from an internal Artifactory feed to the PowerShell Gallery.
@@ -117,7 +119,8 @@ releasable Conventional Commits provide fallback notes.
 - Established PoshUI as a versioned PowerShell module published from semantic
   version tags.
 
-[Unreleased]: https://github.com/NickCrew/PoshUI/compare/v4.1.0...HEAD
+[Unreleased]: https://github.com/NickCrew/PoshUI/compare/v4.2.0...HEAD
+[4.2.0]: https://github.com/NickCrew/PoshUI/compare/v4.1.0...v4.2.0
 [4.1.0]: https://github.com/NickCrew/PoshUI/compare/v4.0.0...v4.1.0
 [4.0.0]: https://github.com/NickCrew/PoshUI/compare/v3.0.1...v4.0.0
 [3.0.1]: https://github.com/NickCrew/PoshUI/compare/v3.0.0...v3.0.1
